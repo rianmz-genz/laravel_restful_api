@@ -29,13 +29,31 @@ class UserTest extends TestCase
                 ]
             ]);
     }
-    public function testRegisterFailed()
+    public function testGetSuccess()
     {
-    }
-    public function testRegisterUsernameAlreadyExists()
-    {
-    }
+        $this->seed([UserSeeder::class]);
+        $this->get('api/users/current', [
+            'Authorization' => 'test'
+        ])->assertStatus(200)->assertJson([
+            'data' => [
+                'username' => 'test',
+                'name' => 'test'
+            ]
 
+        ]);
+    }
+    public function testUpdateNameSuccess()
+    {
+        $this->seed([UserSeeder::class]);
+        $oldUser = User::where('username', 'test')->first();
+        $this->patch('api/users/current', [
+            'name' => 'anyar'
+        ], [
+            'Authorization' => 'test'
+        ])->assertStatus(200);
+        $newUser = User::where('username', 'test')->first();
+        self::assertNotEquals($oldUser->name, $newUser->name);
+    }
     public function testLoginSuccess()
     {
         $this->seed([UserSeeder::class]);
@@ -51,5 +69,15 @@ class UserTest extends TestCase
             ]);
         $user = User::where('username', 'test')->first();
         assertNotNull($user->token);
+    }
+    public function testLogoutSuccess()
+    {
+        $this->seed([UserSeeder::class]);
+        $this->delete('api/users/logout', [], [
+            'Authorization' => 'test'
+        ])->assertStatus(200)
+            ->assertJson([
+                "data" => true
+            ]);
     }
 }
