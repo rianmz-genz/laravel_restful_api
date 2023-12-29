@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Model implements Authenticatable
 {
@@ -21,6 +22,12 @@ class User extends Model implements Authenticatable
         'password',
         'name'
     ];
+
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(Contact::class, "user_id", "id");
+    }
+
     public function getAuthIdentifierName()
     {
         return 'username';
