@@ -40,10 +40,10 @@ class ContactTest extends TestCase
 
     public function testGetSuccess()
     {
-        $this->seed([UserSeeder::class,ContactSeeder::class]);
+        $this->seed([UserSeeder::class, ContactSeeder::class]);
         $contact = Contact::query()->limit(1)->first();
 
-        $this->get('/api/contacts/'.$contact->id, [
+        $this->get('/api/contacts/' . $contact->id, [
             'Authorization' => 'test'
         ])->assertStatus(200)->assertJson([
             'data' => [
@@ -57,12 +57,45 @@ class ContactTest extends TestCase
 
     public function testSearchByName()
     {
-        $this->seed([UserSeeder::class,SearchSeeder::class]);
+        $this->seed([UserSeeder::class, SearchSeeder::class]);
 
         $response = $this->get('/api/contacts?name=first', [
             'Authorization' => 'test'
         ])->assertStatus(200)->json();
         Log::info(json_encode($response));
         self::assertEquals(10, count($response['data']));
+    }
+
+    public function testSearchByEmail()
+    {
+        $this->seed([UserSeeder::class, SearchSeeder::class]);
+
+        $response = $this->get('/api/contacts?email=test', [
+            'Authorization' => 'test'
+        ])->assertStatus(200)->json();
+        Log::info(json_encode($response));
+        self::assertEquals(10, count($response['data']));
+    }
+
+    public function testUpdateSuccess()
+    {
+        $this->seed([UserSeeder::class, ContactSeeder::class]);
+        $contact = Contact::where('first_name', 'test')->first();
+        $response = $this->put('/api/contacts/' . $contact->id, [
+            'first_name' => 'testupdate',
+            'last_name' => 'testupdate',
+            'email' => 'testupdate@gmail.com',
+            'phone' => '111111111update',
+        ], [
+            'Authorization' => 'test'
+        ])->assertJson([
+            'data' => [
+                'first_name' => 'testupdate',
+                'last_name' => 'testupdate',
+                'email' => 'testupdate@gmail.com',
+                'phone' => '111111111update',
+            ]
+        ]);
+        self::assertNotEquals($response, $contact);
     }
 }

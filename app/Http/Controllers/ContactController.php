@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ContactCreateRequest;
+use App\Http\Requests\ContactUpdateRequest;
 use App\Http\Resources\ContactCollection;
 use App\Http\Resources\ContactResource;
 use App\Models\Contact;
@@ -25,12 +26,12 @@ class ContactController extends Controller
 
         return (new ContactResource($contact))->response()->setStatusCode(201);
     }
-    public function get(int $id) : ContactResource
+    public function get(int $id): ContactResource
     {
         $user = Auth::user();
 
         $contact = Contact::where('id', $id)->where('user_id', $user->id)->first();
-        if(!$contact){
+        if (!$contact) {
             throw new HttpResponseException(response()->json([
                 'errors' => [
                     'message' => [
@@ -42,7 +43,7 @@ class ContactController extends Controller
         return new ContactResource($contact);
     }
 
-    public function search(Request $request) : ContactCollection
+    public function search(Request $request): ContactCollection
     {
         $user = Auth::user();
         $page = $request->input('page', 1);
@@ -50,25 +51,50 @@ class ContactController extends Controller
         $contacts = Contact::query()->where('user_id', $user->id);
         $contacts = $contacts->where(function (Builder $builder) use ($request) {
             $name = $request->input('name');
-            if($name) {
-                $builder->where(function (Builder$builder) use($name) {
-                    $builder->orWhere('first_name', 'like' , '%'.$name.'%');
-                    $builder->orWhere('last_name', 'like' , '%'.$name.'%');
+            if ($name) {
+                $builder->where(function (Builder $builder) use ($name) {
+                    $builder->orWhere('first_name', 'like', '%' . $name . '%');
+                    $builder->orWhere('last_name', 'like', '%' . $name . '%');
                 });
             }
 
             $email = $request->input('email');
-            if($email) {
-                $builder->where('email', 'like', '%'.$email.'%');
+            if ($email) {
+                $builder->where('email', 'like', '%' . $email . '%');
             }
 
             $phone = $request->input('phone');
-            if($phone) {
-                $builder->where('phone', 'like', '%'.$phone.'%');
+            if ($phone) {
+                $builder->where('phone', 'like', '%' . $phone . '%');
             }
         });
         $contacts = $contacts->paginate(perPage: $size, page: $page);
 
         return new ContactCollection($contacts);
+    }
+
+
+    public function update(ContactUpdateRequest $request, int $id): ContactResource
+    {
+        $contact = Contact::where('id', $id)->first();
+        if (!$contact) {
+            throw new HttpResponseException(response()->json([
+                'errors' => [
+                    'message' => [
+                        'not found'
+                    ]
+                ]
+            ])->setStatusCode(404));
+        }
+        $reqFields = ['first_name', 'last_name', 'email', 'phone'];
+        $data = $request->validated();
+        foreach ($reqFields as $r) {
+            if (isset($data[$r])) {
+                $contact[$r] = $data[$r];
+            }
+        }
+        $contact->save();
+
+        return new ContactResource($contact);
     }
 }
