@@ -12,73 +12,95 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
+    use Helper;
     public function register(UserRegisterRequest $request): JsonResponse
     {
         $data = $request->validated();
 
-        if (User::where('username', $data['username'])->count() == 1) {
+        $existingUserCount = DB::select("SELECT COUNT(*) as count FROM users WHERE username = ?", [$data['username']])[0]->count;
+
+        if ($existingUserCount == 1) {
             throw new HttpResponseException(response([
                 "errors" => "username already registered"
             ], 400));
         }
 
-        $user = new User($data);
-        $user->password = Hash::make($data['password']);
-        $user->save();
+        $data['password'] = Hash::make($data['password']);
 
-        return (new UserResource($user))->response()->setStatusCode(201);
+        $userId = DB::table('users')->insertGetId($data);
+
+        $user = DB::select("SELECT * FROM users WHERE id = ?", [$userId])[0];
+
+        return $this->basic_response(new UserResource($user), 'Success to register user', 201);
     }
+
 
     public function login(UserLoginRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $user = User::where('username', $data['username'])->first();
-        if (!$user || !Hash::check($data['password'], $user->password)) {
+
+        $user = DB::select("SELECT * FROM users WHERE username = ? LIMIT 1", [$data['username']]);
+
+        if (empty($user) || !Hash::check($data['password'], $user[0]->password)) {
             throw new HttpResponseException(response([
                 "errors" => "username or password wrong"
             ], 401));
         }
-        $user->token = Str::uuid()->toString();
-        $user->save();
-        return (new UserResource($user))->response()->setStatusCode(200);
+
+        $user = $user[0];
+        $token = Str::uuid()->toString();
+
+        DB::update("UPDATE users SET token = ? WHERE id = ?", [$token, $user->id]);
+        $userHasLogin = DB::selectOne("SELECT * FROM users WHERE username = ?", [$data['username']]);
+        return $this->basic_response(new UserResource($userHasLogin), 'Succes login');
     }
 
-    public function get(Request $request): UserResource
+    public function get(Request $request): JsonResponse
     {
         $user = Auth::user();
-        return new UserResource($user);
+        return $this->basic_response(new UserResource($user), 'Success to get user');
     }
 
-    public function update(UserUpdateRequest $request): UserResource
+    public function update(UserUpdateRequest $request): JsonResponse
     {
         $data = $request->validated();
 
         $user = Auth::user();
 
+        // Buat array untuk menyimpan kolom dan nilai yang akan diupdate
+        $updateData = [];
+
         if (isset($data['name'])) {
-            $user->name = $data['name'];
+            $updateData['name'] = $data['name'];
         }
 
         if (isset($data['password'])) {
-            $user->password = Hash::make($data['password']);
+            $updateData['password'] = Hash::make($data['password']);
         }
 
-        $user->save();
-        return new UserResource($user);
+        // Lakukan update menggunakan raw query
+        DB::table('users')
+            ->where('id', $user->id)
+            ->update($updateData);
+
+        // Ambil data pengguna yang baru saja diupdate
+        $updatedUser = DB::table('users')->find($user->id);
+
+        return $this->basic_response(new UserResource($updatedUser), 'Success to update user');
     }
+
     public function logout(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $user->token = null;
 
-        $user->save();
-        return response()->json([
-            'data' => true
-        ])->setStatusCode(200);
+        DB::update("UPDATE users SET token = null WHERE id = ?", [$user->id]);
+
+        return $this->basic_response(true, 200);
     }
 }

@@ -6,6 +6,7 @@ use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class ApiAuthMiddleware
@@ -18,6 +19,8 @@ class ApiAuthMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $token = $request->header('Authorization');
+        $users = User::all();
+        Log::info(json_encode($users));
         $authenticate = true;
         $user = User::where('token', $token)->first();
         if (!$user) {

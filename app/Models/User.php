@@ -23,10 +23,6 @@ class User extends Model implements Authenticatable
         'name'
     ];
 
-    public function contacts(): HasMany
-    {
-        return $this->hasMany(Contact::class, "user_id", "id");
-    }
 
     public function getAuthIdentifierName()
     {
